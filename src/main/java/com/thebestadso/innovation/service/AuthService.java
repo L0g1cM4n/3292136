@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.thebestadso.innovation.dto.HttpGlobalResponseDTO;
+import com.thebestadso.innovation.dto.LoginRequestDTO;
 import com.thebestadso.innovation.dto.LoginResponseDTO;
 import com.thebestadso.innovation.dto.RegisterRequestDTO;
 import com.thebestadso.innovation.dto.UserDTO;
@@ -57,6 +58,45 @@ public class AuthService {
         response.setMessage("Token refrescado correctamente");
         response.setData(refresh);
 
+        return response;
+    }
+
+    /**
+     * Método para iniciar sesión.
+     * Valida las credenciales y, si son correctas, genera un jwt firmado.
+     * Si fallan, devuelve data = null (el controller responde 401).
+     *
+     * @param request username y password
+     * @return mensaje + jwt (o data null si las credenciales son incorrectas)
+     */
+    public HttpGlobalResponseDTO<LoginResponseDTO> login(LoginRequestDTO request) {
+        HttpGlobalResponseDTO<LoginResponseDTO> response = new HttpGlobalResponseDTO<>();
+
+        // Datos obligatorios
+        if (request == null || request.getUsername() == null || request.getUsername().isBlank()
+                || request.getPassword() == null || request.getPassword().isBlank()) {
+            response.setMessage("Usuario y contraseña son obligatorios");
+            return response;
+        }
+
+        Optional<Users> userFound = userRepository.findByUsername(request.getUsername());
+
+        // Mismo mensaje si el usuario no existe o la clave es incorrecta, para no
+        // revelar cuáles usuarios existen (user enumeration)
+        if (userFound.isEmpty()
+                || !passwordEncoder.matches(request.getPassword(), userFound.get().getPassword())) {
+            response.setMessage("Credenciales inválidas");
+            return response;
+        }
+
+        Users user = userFound.get();
+        String jwt = jwtService.generateToken(user.getId(), user.getUsername(), user.getRolId());
+
+        LoginResponseDTO login = new LoginResponseDTO();
+        login.setJwt(jwt);
+
+        response.setMessage("Inicio de sesión exitoso");
+        response.setData(login);
         return response;
     }
 
